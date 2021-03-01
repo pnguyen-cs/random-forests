@@ -1,5 +1,6 @@
-from random_forest.py import build_tree, predict
-from readmission.py import loadCsv, pca
+from random_forest import build_tree, predict
+from readmission import loadCsv, pca, splitDataset
+import numpy as np
 
 def random_forest(train_data, n_trees, n_features, sample_ratio, max_depth, min_leaf=5):
     np.random.seed(13)

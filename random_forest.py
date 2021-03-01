@@ -13,16 +13,16 @@ class Node:
     
     def best_split(self, n_features):
         class_values = [0, 1]
-        b_index, b_value, b_score, b_groups = None, None, float(inf), None
+        b_index, b_value, b_score, b_groups = None, None, float("inf"), None
         # Random array of feature indices
         features = np.random.randint(self.dataset.shape[1], size=n_features)
         for index in features:
-            for row in self.dataset.shape[0]:
+            for row in range(self.dataset.shape[0]):
                 groups = split_data(self.dataset, index, self.dataset[row, index])
-                gini = gini_index(groups, class_values)
+                gini = gini_score(groups, class_values)
                 if gini < b_score:
                     b_index = index
-                    b_value = row[index]
+                    b_value = self.dataset[row, index]
                     b_score = gini
                     b_groups = groups
         self.index = b_index
@@ -32,6 +32,7 @@ class Node:
     
     def split(self, max_depth, min_size, n_features, curr_depth):
         l_group, r_group = self.groups
+        print("splitting")
         # Tree should have no notion of the data that was used to
         # produce the tree
         del (self.groups)
