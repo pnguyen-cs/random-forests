@@ -17,12 +17,41 @@ def loadCsv(filename):
 
 #Split data into training and validation portions
 def splitDataset(dataset, splitRatio):
+    """ Uses stratification so we have an equal mix of classes
+    in training and test dataset"""
     trainSize = int(len(dataset) * splitRatio)
     copy = np.copy(dataset)
+    np.random.seed(10)
     np.random.shuffle(copy)
-    trainSet = copy[:, :trainSize]
-    copy = copy[:, trainSize:]
-    return [trainSet, copy]
+
+    features = {}
+    for row in range(copy.shape[0]):
+        feature = copy[row, -1]
+        if feature in features:
+            features[feature][0].append(copy[row,])
+            features[feature][1] += 1
+        else:
+            features[feature] = [[copy[row,]], 1]
+    
+    #find ratios
+    ratios = {}
+    for feature in features:
+        feature_ratio = features[feature][1] / len(dataset)
+        ratios[feature] = math.floor(trainSize * feature_ratio)
+    #populate training and test sets
+    train = []
+    for r in features:
+        for _ in range(ratios[r]):
+            train.append(features[r][0].pop(0))
+            features[r][1] -= 1
+    
+    test = []
+    for r in ratios:
+        while features[r][0]:
+            test.append(features[r][0].pop(0))
+            features[r][1] -= 1
+
+    return [np.array(test), np.array(test)]
 
 #Group data points by class
 def separateByClass(dataset):
@@ -161,7 +190,7 @@ def pca(var_thres):
     Output: New reduced dataset with readmission data restored as last column
 
     """
-    data = loadCsv('readmissionTest.csv')
+    data = loadCsv('readmission.csv')
     #is already an array
     #data = np.array(data)
     
@@ -193,7 +222,7 @@ def concat_label(array_1, array_2):
     new_array = np.insert(array_1, len(array_1[0]), array_2, axis=1)
     return new_array
     
-result = pca(0.7)
+# result = pca(0.7)
 #print(result[0][:, 13])
 # print(len(result))
 # print(len(result[0]))

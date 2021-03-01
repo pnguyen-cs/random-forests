@@ -14,8 +14,8 @@ class Node:
     def best_split(self, n_features):
         class_values = [0, 1]
         b_index, b_value, b_score, b_groups = None, None, float("inf"), None
-        # Random array of feature indices
-        features = np.random.randint(self.dataset.shape[1], size=n_features)
+        # Random array of feature indices without the class label
+        features = np.random.randint(self.dataset.shape[1], size=n_features - 1)
         for index in features:
             for row in range(self.dataset.shape[0]):
                 groups = split_data(self.dataset, index, self.dataset[row, index])
@@ -31,10 +31,11 @@ class Node:
     
     
     def split(self, max_depth, min_size, n_features, curr_depth):
-        l_group, r_group = self.groups
-        print("splitting")
+        l_group, r_group = self.groups[0], self.groups[1]
         # Tree should have no notion of the data that was used to
         # produce the tree
+        del self.groups
+        del self.dataset
         # Check if one of the groups is empty
         # this means that there was no split that could occur with a better gini score
         if l_group.size == 0:
@@ -58,12 +59,31 @@ class Node:
             self.left = Node(l_group)
             self.left.best_split(n_features)
             self.left.split(max_depth, min_size, n_features, curr_depth + 1)
-        if len(l_group) <= min_size:
-            self.left = most_common_label(l_group)
+        if len(r_group) <= min_size:
+            self.right = most_common_label(r_group)
         else:
             self.right = Node(r_group)
             self.right.best_split(n_features)
             self.right.split(max_depth, min_size, n_features, curr_depth + 1)
+
+    def __repr__(self):
+        string = ""
+        if isinstance(self.left, float):
+            string += "Left: " + str(self.left) + ","
+        elif isinstance(self.right, float):
+            string += "Right: " + str(self.right) + ","
+        string += "Value: " + str(self.value) +","
+        string += "Index: " + str(self.index)
+        return string
+
+    def printTree(self, leadspace):
+        print(leadspace, self)
+        children = [self.left, self.right]
+        for child in children:
+            if isinstance(child, float):
+                print(leadspace + str(child))
+            else:
+                child.printTree(leadspace + "  ")
     
 
 def build_tree(train_data, max_depth, min_size, n_features):
@@ -73,17 +93,13 @@ def build_tree(train_data, max_depth, min_size, n_features):
     return root
 
 def predict(node, row):
-    print(node.index, row)
-    if not row:
-        print("row is empty")
-        return
     if row[node.index] < node.value:
-        if node.left in [0, 1]:
+        if node.left in [0.0, 1.0]:
             return node.left
         else:
             predict(node.left, row)
     else:
-        if node.right in [0, 1]:
+        if node.right in [0.0, 1.0]:
             return node.right
         else:
             predict(node.right, row)
@@ -92,7 +108,7 @@ def predict(node, row):
 def most_common_label(group):
     if group.size == 0:
         raise Exception("Group is empty")
-    labels = group[-1,]
+    labels = group[:, -1]
     # np function for counting occurences of each label
     vals, counts = np.unique(labels, return_counts=True)
     # find the index of the most frequent one
@@ -107,12 +123,11 @@ def split_data(data, index, val):
     """splits a dataset based on the index of a feature and a value for that feature"""
     left = []
     right = []
-    feature_split = data[:, index]
-    for i in range(len(feature_split)):
-        if feature_split[i] < val:
-            left.append(data[i])
+    for i in range(data.shape[0]):
+        if data[i, index] < val:
+            left.append(data[i,])
         else:
-            right.append(data[i])
+            right.append(data[i,])
     return [np.array(left), np.array(right)]
 
 def gini_score(groups_formed, classes):
@@ -127,7 +142,7 @@ def gini_score(groups_formed, classes):
             for val in classes:
                 #get labels for each row
                 labels = group[:, -1]
-                labels = list(labels).count(val)
+                labels = np.count_nonzero(labels == val)
                 prob = labels / float(len(group))
                 current_score += prob**2
             gini_score += (1.0 - current_score)*(float(len(group)/float(total_samples)))
