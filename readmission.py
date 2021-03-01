@@ -161,7 +161,7 @@ def pca(var_thres):
     Output: New reduced dataset with readmission data restored as last column
 
     """
-    data = loadCsv('readmission.csv')
+    data = loadCsv('readmissionTest.csv')
     #is already an array
     #data = np.array(data)
     

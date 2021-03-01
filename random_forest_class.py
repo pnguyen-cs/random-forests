@@ -1,5 +1,5 @@
 from random_forest import build_tree, predict
-from readmission import loadCsv, pca, splitDataset
+from readmission import loadCsv, pca, splitDataset, evaluate
 import numpy as np
 
 def random_forest(train_data, n_trees, n_features, sample_ratio, max_depth, min_leaf=5):
@@ -7,6 +7,7 @@ def random_forest(train_data, n_trees, n_features, sample_ratio, max_depth, min_
     trees = []
     for i in range(n_trees):
       trees.append(build_tree(train_data, max_depth, min_leaf, n_features))
+    return trees
 
 def final_predict(trees, row):
     return np.mean([predict(t, row) for t in trees], axis=0)
@@ -19,8 +20,13 @@ def sample_data(dataset, ratio):
   return dataset[rows]
 
 data, num_features = pca(0.7)
-split = splitDataset(data, 0.2)
+split = splitDataset(data, 0.8)
 small_train = split[0]
 
 forest = random_forest(small_train, 1, num_features, 0.25, 10)
 
+small_test = split[1]
+predictions = []
+for row in small_test:
+  predictions.append(final_predict(forest, row))
+print(evaluate(small_test, predictions))

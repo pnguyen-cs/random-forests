@@ -59,7 +59,7 @@ class Node:
     
 
 def build_tree(train_data, max_depth, min_size, n_features):
-    root = Node(train_data).best_split(n_features)
+    root = Node(train_data)
     root.split(max_depth, min_size, n_features, 1)
     return root
 
