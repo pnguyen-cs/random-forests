@@ -3,19 +3,21 @@ from readmission import loadCsv, pca, splitDataset, evaluate
 import numpy as np
 
 def random_forest(train_data, n_trees, n_features, sample_ratio, max_depth, min_leaf=5):
-    np.random.seed(13)
+
     trees = []
     for i in range(n_trees):
       trees.append(build_tree(train_data, max_depth, min_leaf, n_features))
     return trees
 
 def final_predict(trees, row):
-    return np.mean([predict(t, row) for t in trees], axis=0)
+    # return np.mean([predict(t, row) for t in trees], axis=0)
+    print([predict(t, row) for t in trees])
 
 
 
 def sample_data(dataset, ratio):
   n_sample = round(dataset.shape[0] * ratio)
+  np.random.seed(13)
   rows = np.random.randint(dataset.shape[0], size=n_sample)
   return dataset[rows]
 
@@ -28,5 +30,6 @@ forest = random_forest(small_train, 1, num_features, 0.25, 10)
 small_test = split[1]
 predictions = []
 for row in small_test:
-  predictions.append(final_predict(forest, row))
-print(evaluate(small_test, predictions))
+  # predictions.append(final_predict(forest, row))
+  final_predict(forest, row)
+# print(evaluate(small_test, predictions))
