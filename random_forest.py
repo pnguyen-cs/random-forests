@@ -179,7 +179,14 @@ def final_predict(trees, row):
     # return the most frequent value
     return vals[max_index]
 
+def sample_data(dataset, ratio):
+  n_sample = round(dataset.shape[0] * ratio)
+  rows = np.random.randint(dataset.shape[0], size=n_sample)
+  return dataset[rows]
 
+data, num_features = pca(0.8)
+split = splitDataset(data, 0.8)
+small_train = split[0]
 
 def sample_data(dataset, ratio):
     trainSize = int(len(dataset) * ratio)
