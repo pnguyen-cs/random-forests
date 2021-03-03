@@ -23,35 +23,29 @@ def splitDataset(dataset, splitRatio):
     copy = np.copy(dataset)
     np.random.seed(10)
     np.random.shuffle(copy)
-
-    features = {}
+    
+    # Dictionary that stores all rows that are class 0 or class 1 and stores their count
+    class_count = {0: [[], 0], 1: [[], 0]}
     for row in range(copy.shape[0]):
-        feature = copy[row, -1]
-        if feature in features:
-            features[feature][0].append(copy[row,])
-            features[feature][1] += 1
-        else:
-            features[feature] = [[copy[row,]], 1]
+        class_label = copy[row, -1]
+        class_count[class_label][0].append(copy[row,])
+        class_count[class_label][1] += 1
     
     #find ratios
-    ratios = {}
-    for feature in features:
-        feature_ratio = features[feature][1] / len(dataset)
-        ratios[feature] = math.floor(trainSize * feature_ratio)
+    zero_ratio = class_count[0][1] / len(dataset)
+    one_ratio = class_count[1][1] / len(dataset)
+    ratios = [zero_ratio, one_ratio]
     #populate training and test sets
     train = []
-    for r in features:
-        for _ in range(ratios[r]):
-            train.append(features[r][0].pop(0))
-            features[r][1] -= 1
+    for i in [0, 1]:
+        for _ in range(math.floor(ratios[i] * trainSize)):
+            train.append(class_count[i][0].pop())
+            class_count[i][1] -= 1
     
     test = []
-    for r in ratios:
-        while features[r][0]:
-            test.append(features[r][0].pop(0))
-            features[r][1] -= 1
-
-    return [np.array(test), np.array(test)]
+    for i in [0, 1]:
+        test += class_count[i][0]
+    return [np.array(train), np.array(test)]
 
 #Group data points by class
 def separateByClass(dataset):
@@ -133,6 +127,7 @@ def evaluate(testSet, predictions):
     tp0 = 0.0
     fp0 = 0.0
     fn0 = 0.0
+    
     for i in range(len(testSet)):
         if testSet[i][-1] == 0:
             if predictions[i] == 0:
@@ -146,6 +141,7 @@ def evaluate(testSet, predictions):
             else:
                 fp0 += 1.0
                 fn1 += 1.0
+    print(tp1, fp1, fn1, tp0, fp0, fn0)
     p0 = tp0/(tp0+fp0)
     p1 = tp1/(tp1+fp1)
     r0 = tp0/(tp0+fn0)
@@ -190,7 +186,7 @@ def pca(var_thres):
     Output: New reduced dataset with readmission data restored as last column
 
     """
-    data = loadCsv('readmission.csv')
+    data = loadCsv('readmissionTest.csv')
     #is already an array
     #data = np.array(data)
     
@@ -221,7 +217,7 @@ def pca(var_thres):
 def concat_label(array_1, array_2):
     new_array = np.insert(array_1, len(array_1[0]), array_2, axis=1)
     return new_array
-    
+ 
 # result = pca(0.7)
 #print(result[0][:, 13])
 # print(len(result))

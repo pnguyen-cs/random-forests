@@ -1,22 +1,34 @@
 import random
 import csv
-from readmission import stdev, loadCsv, splitDataset, pca
+from readmission import stdev, loadCsv, splitDataset, pca, evaluate
 import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+import math
 
 class Node:
-    def __init__(self, dataset):
+    def __init__(self, dataset, features_left):
         self.dataset = dataset
         self.right = None
         self.left = None
         self.index = None
         self.value = None
+        self.features_left = features_left
     
     def best_split(self, n_features):
         class_values = [0, 1]
         b_index, b_value, b_score, b_groups = None, None, float("inf"), None
         # Random array of feature indices without the class label
-        features = np.random.randint(self.dataset.shape[1], size=n_features - 1)
+        random.shuffle(self.features_left)
+        features = []
+        if len(self.features_left) < n_features:
+            features = self.features_left
+            self.features_left = None
+        else:
+            features = self.features_left[:3]
+            self.features_left = self.features_left[3:]
         for index in features:
+            if b_score == 0:
+                break
             for row in range(self.dataset.shape[0]):
                 groups = split_data(self.dataset, index, self.dataset[row, index])
                 gini = gini_score(groups, class_values)
@@ -31,6 +43,7 @@ class Node:
     
     
     def split(self, max_depth, min_size, n_features, curr_depth):
+        print("splitting")
         l_group, r_group = self.groups[0], self.groups[1]
         # Tree should have no notion of the data that was used to
         # produce the tree
@@ -48,31 +61,27 @@ class Node:
             self.right = self.left
             # Stop recursion
             return
-        # if we have reached our desired tree depth, stop
-        if curr_depth >= max_depth:
+        # if we have reached our desired tree depth or if we have run out of features, stop
+        if (curr_depth >= max_depth) or not self.features_left:
             self.left, self.right = most_common_label(l_group), most_common_label(r_group)
             return
         # Split left and right group if larger than min size
         if len(l_group) <= min_size:
             self.left = most_common_label(l_group)
         else:
-            self.left = Node(l_group)
+            self.left = Node(l_group, self.features_left)
             self.left.best_split(n_features)
             self.left.split(max_depth, min_size, n_features, curr_depth + 1)
         if len(r_group) <= min_size:
             self.right = most_common_label(r_group)
         else:
-            self.right = Node(r_group)
+            self.right = Node(r_group, self.features_left)
             self.right.best_split(n_features)
             self.right.split(max_depth, min_size, n_features, curr_depth + 1)
 
     def __repr__(self):
         string = ""
-        if isinstance(self.left, float):
-            string += "Left: " + str(self.left) + ","
-        elif isinstance(self.right, float):
-            string += "Right: " + str(self.right) + ","
-        string += "Value: " + str(self.value) +","
+        string += "Value: " + str(self.value) +"  "
         string += "Index: " + str(self.index)
         return string
 
@@ -87,7 +96,7 @@ class Node:
     
 
 def build_tree(train_data, max_depth, min_size, n_features):
-    root = Node(train_data)
+    root = Node(train_data, list(range(train_data.shape[1])))
     root.best_split(n_features)
     root.split(max_depth, min_size, n_features, 1)
     return root
@@ -115,8 +124,6 @@ def most_common_label(group):
     max_index = np.argmax(counts)
     # return the most frequent value
     return vals[max_index]
-
-
 
 
 def split_data(data, index, val):
@@ -148,18 +155,81 @@ def gini_score(groups_formed, classes):
             gini_score += (1.0 - current_score)*(float(len(group)/float(total_samples)))
     return gini_score
 
-#def main():
-#    print(best_split(data, 4))
+
+def random_forest(train_data, n_trees, n_features, sample_ratio, max_depth, min_leaf=5):
+    trees = []
+    for i in range(n_trees):
+        trees.append(build_tree(sample_data(train_data, sample_ratio), max_depth, min_leaf, n_features))
+    for tree in trees:
+        tree.printTree("")
+        print(" ")
+    return trees
+
+def final_predict(trees, row):
+    predictions = []
+    for tree in trees:
+        prediction = predict(tree, row)
+        if prediction == None:
+            prediction = 0
+        predictions.append(prediction)
+    # np function for counting occurences of each label
+    vals, counts = np.unique(predictions, return_counts=True)
+    # find the index of the most frequent one
+    max_index = np.argmax(counts)
+    # return the most frequent value
+    return vals[max_index]
 
 
 
+def sample_data(dataset, ratio):
+    trainSize = int(len(dataset) * ratio)
+    copy = np.copy(dataset)
+    np.random.seed(10)
+    np.random.shuffle(copy)
+    
+    # list that stores row indices of only either label 0 or label 1
+    label_indices = [np.where(copy[:,-1] == 0), np.where(copy[:,-1] == 1)]
+    
+    # change the numbers to change class distribution in sample
+    zeros = math.floor(0.3 * trainSize)
+    ones = math.floor(0.3 * trainSize)
+    
+    train_indices = np.concatenate((label_indices[0][:zeros], label_indices[1][:ones]), axis=None)
+    
+    return copy[train_indices]
 
+def data_synthesis(dataset, num_features):
+    """ synthesizes data and adds random noise to randomly selected features"""
+    copy = np.copy(dataset)
+    # np.where returns a tuple, need to use [0] to access actual array of indices
+    zero_indices, one_indices = np.where(copy[:, -1] == 0)[0], np.where(copy[:, -1] == 1)[0]
+    zero_size = zero_indices.size
+    one_size = one_indices.size
+    while one_size < zero_size:
+        for row in copy[one_indices]:
+            if random.randint(0, 1) > 0.5:
+                features_to_modify = np.random.randint(0, high=num_features, size=random.randrange(0, num_features, 1))
+                row_copy = np.copy(row)
+                for feature in features_to_modify:
+                    value = row_copy[feature]
+                    row_copy[feature] = value + random.uniform(-value / 2, value / 2)
+                copy = np.vstack((copy, row_copy))
+                one_size += 1
+            if one_size > zero_size:
+                break
+    return copy
+
+
+data, num_features = pca(0.8)
 # data = loadCsv("readmissionTest.csv")
-#should use stratification to split data
-# np.random.seed(2)
-# pca outputs min num of principal components to cover the given variance ratio with the readmission data as the last column
-# data, num_features = pca(0.7)
-# split = splitDataset(data, 0.2)
-# small_train = split[0]   
-#use k-folds to get size of each original tree
-#main()
+# num_features = data.shape[1]-1
+data = data_synthesis(data, num_features)
+split = splitDataset(data, 0.8)
+small_train = split[0]
+
+forest = random_forest(small_train, 5, num_features, 0.10, 10, min_leaf=5)
+small_test = split[1]
+predictions = []
+for row in small_test:
+  predictions.append(final_predict(forest, row))
+evaluate(small_test, predictions)
